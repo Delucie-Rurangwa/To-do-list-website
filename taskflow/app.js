@@ -1,3 +1,20 @@
+// ===== TEMPORARY: Firebase connection test (we'll remove this next step) =====
+import { db } from "./firebase.js";
+import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+console.log("app.js loaded");
+
+async function testConnection() {
+  try {
+    const snapshot = await getDocs(collection(db, "tasks"));
+    console.log("Documents found:", snapshot.size);
+    snapshot.forEach((d) => console.log(d.id, d.data()));
+  } catch (error) {
+    console.error("Firestore error:", error);
+  }
+}
+testConnection();
+
 // ===== Part A: state and element references =====
 let tasks = [];
 let currentFilter = "all";
