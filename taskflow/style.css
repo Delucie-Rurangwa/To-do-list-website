@@ -1,3 +1,4 @@
+/* ===== Variables and base ===== */
 :root {
   --color-bg: #f4f5f9;
   --color-surface: #ffffff;
@@ -25,6 +26,7 @@ body {
   line-height: 1.5;
 }
 
+/* ===== Visually hidden (for screen readers) ===== */
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -37,6 +39,7 @@ body {
   border: 0;
 }
 
+/* ===== Layout (mobile-first) ===== */
 .app-header {
   text-align: center;
   padding: 1.5rem var(--space) 0.5rem;
@@ -93,6 +96,7 @@ button {
   margin: 0.5rem 0;
 }
 
+/* ===== Filters, status, list ===== */
 .filters {
   display: flex;
   gap: 0.5rem;
@@ -142,6 +146,23 @@ button {
   border-color: var(--color-danger);
 }
 
+/* ===== Editing ===== */
+.edit-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius);
+  font: inherit;
+}
+
+.save-btn {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+/* ===== Footer and focus ===== */
 .app-footer {
   text-align: center;
   color: var(--color-muted);
@@ -153,6 +174,7 @@ input:focus-visible {
   outline-offset: 2px;
 }
 
+/* ===== Desktop ===== */
 @media (min-width: 768px) {
   .app {
     padding: 2rem;

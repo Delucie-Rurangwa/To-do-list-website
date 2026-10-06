@@ -1,6 +1,7 @@
 // ===== Part A: state and element references =====
 let tasks = [];
 let currentFilter = "all";
+let editingId = null;
 
 const form = document.querySelector("#task-form");
 const input = document.querySelector("#task-input");
@@ -10,8 +11,10 @@ const statusMessage = document.querySelector("#status");
 const list = document.querySelector("#task-list");
 const counter = document.querySelector("#counter");
 
-// ===== Part B: building one task element =====
+// ===== Part B: building task elements =====
 function createTaskElement(task) {
+  if (task.id === editingId) return createEditElement(task);
+
   const li = document.createElement("li");
   li.className = "task" + (task.completed ? " completed" : "");
   li.dataset.id = task.id;
@@ -41,6 +44,32 @@ function createTaskElement(task) {
   return li;
 }
 
+function createEditElement(task) {
+  const li = document.createElement("li");
+  li.className = "task editing";
+  li.dataset.id = task.id;
+
+  const editInput = document.createElement("input");
+  editInput.type = "text";
+  editInput.className = "edit-input";
+  editInput.value = task.title;
+  editInput.maxLength = 100;
+  editInput.setAttribute("aria-label", "Edit task title");
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "save-btn";
+  saveBtn.textContent = "Save";
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "cancel-btn";
+  cancelBtn.textContent = "Cancel";
+
+  li.append(editInput, saveBtn, cancelBtn);
+  return li;
+}
+
 // ===== Part C: rendering =====
 function getVisibleTasks() {
   if (currentFilter === "active") return tasks.filter((t) => !t.completed);
@@ -66,6 +95,12 @@ function renderTasks() {
   statusMessage.textContent = visible.length === 0 ? "No tasks to show." : "";
   renderCounter();
   renderFilters();
+
+  const editInput = list.querySelector(".edit-input");
+  if (editInput) {
+    editInput.focus();
+    editInput.select();
+  }
 }
 
 // ===== Part D: the actions =====
@@ -84,6 +119,31 @@ function toggleTask(id) {
 
 function deleteTask(id) {
   tasks = tasks.filter((t) => t.id !== id);
+}
+
+function updateTaskTitle(id, title) {
+  const task = tasks.find((t) => t.id === id);
+  if (task) task.title = title;
+}
+
+function saveEdit(li) {
+  const title = li.querySelector(".edit-input").value.trim();
+
+  if (!title) {
+    formError.textContent = "A task can't be empty.";
+    return;
+  }
+
+  formError.textContent = "";
+  updateTaskTitle(li.dataset.id, title);
+  editingId = null;
+  renderTasks();
+}
+
+function cancelEdit() {
+  formError.textContent = "";
+  editingId = null;
+  renderTasks();
 }
 
 // ===== Part E: events =====
@@ -117,12 +177,27 @@ list.addEventListener("click", (event) => {
   if (event.target.matches("input[type='checkbox']")) {
     toggleTask(id);
     renderTasks();
+  } else if (event.target.matches(".edit-btn")) {
+    editingId = id;
+    renderTasks();
+  } else if (event.target.matches(".save-btn")) {
+    saveEdit(li);
+  } else if (event.target.matches(".cancel-btn")) {
+    cancelEdit();
   } else if (event.target.matches(".delete-btn")) {
     if (confirm("Delete this task?")) {
       deleteTask(id);
       renderTasks();
     }
   }
+});
+
+list.addEventListener("keydown", (event) => {
+  if (!event.target.matches(".edit-input")) return;
+  const li = event.target.closest(".task");
+
+  if (event.key === "Enter") saveEdit(li);
+  if (event.key === "Escape") cancelEdit();
 });
 
 renderTasks();
