@@ -2,8 +2,8 @@
 
 A simple to-do list web app built with plain HTML, CSS and JavaScript. Tasks are stored in Cloud Firestore, so they persist after a page refresh and are available on any device.
 
-**Live demo:** PASTE_YOUR_GITHUB_PAGES_LINK_HERE
-**Repository:** PASTE_YOUR_REPO_LINK_HERE
+**Live Link:** https://delucie-rurangwa.github.io/To-do-list-website/taskflow/
+**Repository:** https://github.com/Delucie-Rurangwa/To-do-list-website.git
 
 ## Features
 
