@@ -1,27 +1,28 @@
-// ===== TEMPORARY: Firebase connection test (we'll remove this next step) =====
 import { db } from "./firebase.js";
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-console.log("app.js loaded");
-
-async function testConnection() {
-  try {
-    const snapshot = await getDocs(collection(db, "tasks"));
-    console.log("Documents found:", snapshot.size);
-    snapshot.forEach((d) => console.log(d.id, d.data()));
-  } catch (error) {
-    console.error("Firestore error:", error);
-  }
-}
-testConnection();
+import {
+  collection,
+  addDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  doc,
+  query,
+  orderBy,
+  serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ===== Part A: state and element references =====
+const tasksRef = collection(db, "tasks");
+
 let tasks = [];
 let currentFilter = "all";
 let editingId = null;
+let isLoading = true;
+let loadError = "";
 
 const form = document.querySelector("#task-form");
 const input = document.querySelector("#task-input");
+const addButton = form.querySelector("button");
 const formError = document.querySelector("#form-error");
 const filters = document.querySelector(".filters");
 const statusMessage = document.querySelector("#status");
@@ -94,6 +95,13 @@ function getVisibleTasks() {
   return tasks;
 }
 
+function getStatusText(visibleCount) {
+  if (isLoading) return "Loading…";
+  if (loadError) return loadError;
+  if (visibleCount === 0) return "No tasks to show.";
+  return "";
+}
+
 function renderCounter() {
   const left = tasks.filter((t) => !t.completed).length;
   counter.textContent = `${left} ${left === 1 ? "task" : "tasks"} left`;
@@ -109,7 +117,7 @@ function renderTasks() {
   list.replaceChildren();
   const visible = getVisibleTasks();
   visible.forEach((task) => list.append(createTaskElement(task)));
-  statusMessage.textContent = visible.length === 0 ? "No tasks to show." : "";
+  statusMessage.textContent = getStatusText(visible.length);
   renderCounter();
   renderFilters();
 
@@ -120,30 +128,69 @@ function renderTasks() {
   }
 }
 
-// ===== Part D: the actions =====
-function addTask(title) {
-  tasks.unshift({
-    id: String(Date.now()),
+// ===== Part D: Firestore actions =====
+async function loadTasks() {
+  isLoading = true;
+  loadError = "";
+  renderTasks();
+
+  try {
+    const q = query(tasksRef, orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    tasks = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error("Failed to load tasks:", error);
+    loadError = "Couldn't load your tasks. Please refresh and try again.";
+  } finally {
+    isLoading = false;
+    renderTasks();
+  }
+}
+
+async function addTask(title) {
+  const docRef = await addDoc(tasksRef, {
     title,
     completed: false,
+    createdAt: serverTimestamp(),
   });
+  tasks.unshift({ id: docRef.id, title, completed: false });
 }
 
-function toggleTask(id) {
+async function toggleTask(id) {
   const task = tasks.find((t) => t.id === id);
-  if (task) task.completed = !task.completed;
+  if (!task) return;
+  const completed = !task.completed;
+  await updateDoc(doc(db, "tasks", id), { completed });
+  task.completed = completed;
 }
 
-function deleteTask(id) {
-  tasks = tasks.filter((t) => t.id !== id);
-}
-
-function updateTaskTitle(id, title) {
+async function updateTaskTitle(id, title) {
+  await updateDoc(doc(db, "tasks", id), { title });
   const task = tasks.find((t) => t.id === id);
   if (task) task.title = title;
 }
 
-function saveEdit(li) {
+async function deleteTask(id) {
+  await deleteDoc(doc(db, "tasks", id));
+  tasks = tasks.filter((t) => t.id !== id);
+}
+
+// Runs a database action, shows a friendly message if it fails, then redraws.
+async function runAction(action, errorMessage) {
+  formError.textContent = "";
+  try {
+    await action();
+    return true;
+  } catch (error) {
+    console.error(errorMessage, error);
+    formError.textContent = errorMessage;
+    return false;
+  } finally {
+    renderTasks();
+  }
+}
+
+async function saveEdit(li) {
   const title = li.querySelector(".edit-input").value.trim();
 
   if (!title) {
@@ -151,10 +198,14 @@ function saveEdit(li) {
     return;
   }
 
-  formError.textContent = "";
-  updateTaskTitle(li.dataset.id, title);
-  editingId = null;
-  renderTasks();
+  const saved = await runAction(
+    () => updateTaskTitle(li.dataset.id, title),
+    "Couldn't save your changes. Please try again."
+  );
+  if (saved) {
+    editingId = null;
+    renderTasks();
+  }
 }
 
 function cancelEdit() {
@@ -164,7 +215,7 @@ function cancelEdit() {
 }
 
 // ===== Part E: events =====
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const title = input.value.trim();
 
@@ -173,10 +224,17 @@ form.addEventListener("submit", (event) => {
     return;
   }
 
-  formError.textContent = "";
-  addTask(title);
-  input.value = "";
-  renderTasks();
+  addButton.disabled = true;
+  const added = await runAction(
+    () => addTask(title),
+    "Couldn't add your task. Please try again."
+  );
+  addButton.disabled = false;
+
+  if (added) {
+    input.value = "";
+    input.focus();
+  }
 });
 
 filters.addEventListener("click", (event) => {
@@ -192,8 +250,7 @@ list.addEventListener("click", (event) => {
   const id = li.dataset.id;
 
   if (event.target.matches("input[type='checkbox']")) {
-    toggleTask(id);
-    renderTasks();
+    runAction(() => toggleTask(id), "Couldn't update the task. Please try again.");
   } else if (event.target.matches(".edit-btn")) {
     editingId = id;
     renderTasks();
@@ -203,8 +260,7 @@ list.addEventListener("click", (event) => {
     cancelEdit();
   } else if (event.target.matches(".delete-btn")) {
     if (confirm("Delete this task?")) {
-      deleteTask(id);
-      renderTasks();
+      runAction(() => deleteTask(id), "Couldn't delete the task. Please try again.");
     }
   }
 });
@@ -217,4 +273,4 @@ list.addEventListener("keydown", (event) => {
   if (event.key === "Escape") cancelEdit();
 });
 
-renderTasks();
+loadTasks();
